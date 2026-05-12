@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useInView } from "motion/react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const CITY_COORDS: Record<string, { lng: number; lat: number }> = {
   Casablanca: { lng: -7.6, lat: 33.6 },
@@ -33,20 +33,38 @@ function project(lng: number, lat: number) {
   return { x, y };
 }
 
+/** Alternates label placement above/below the dot for dots sorted left-to-right,
+ *  reducing collisions in dense Gulf clusters on small screens. */
+function labelOffsetY(sortedIndex: number): number {
+  return sortedIndex % 2 === 0 ? -13 : 17;
+}
+
 /** Mini map showing this agency's office cities highlighted.
- *  Labels are hidden by default and appear in a strip below the SVG on hover,
- *  avoiding collision in dense Gulf clusters (Manama / Doha / Dubai / Abu Dhabi). */
+ *  Desktop: labels are hover-only (strip below SVG).
+ *  Mobile (<768px): labels rendered inline in SVG, alternating above/below to reduce collision. */
 export function AgencyMap({ offices }: { offices: string[] }) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, amount: 0.5 });
   const [hovered, setHovered] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   const uniqueCities = Array.from(
     new Set(offices.map((o) => o.split(",")[0]?.trim()).filter(Boolean) as string[])
   );
+
+  // Sort placed cities by x position so label alternation tracks left-to-right
   const placed = uniqueCities
     .filter((c) => CITY_COORDS[c])
-    .map((c) => ({ city: c, ...project(CITY_COORDS[c].lng, CITY_COORDS[c].lat) }));
+    .map((c) => ({ city: c, ...project(CITY_COORDS[c].lng, CITY_COORDS[c].lat) }))
+    .sort((a, b) => a.x - b.x);
 
   const allKnown = Object.entries(CITY_COORDS).map(([city, coord]) => ({
     city,
@@ -62,7 +80,7 @@ export function AgencyMap({ offices }: { offices: string[] }) {
         role="img"
         aria-label={`Office locations: ${uniqueCities.join(", ")}`}
       >
-        {/* Faint background dots — unlabelled context dots */}
+        {/* Faint background dots */}
         {allKnown.map((c) =>
           c.highlighted ? null : (
             <circle
@@ -75,7 +93,7 @@ export function AgencyMap({ offices }: { offices: string[] }) {
           )
         )}
 
-        {/* Highlighted office cities — dots only, no inline labels */}
+        {/* Highlighted office cities */}
         {placed.map((p, i) => (
           <motion.g
             key={p.city}
@@ -90,15 +108,9 @@ export function AgencyMap({ offices }: { offices: string[] }) {
             onMouseEnter={() => setHovered(p.city)}
             onMouseLeave={() => setHovered(null)}
           >
-            {/* Larger invisible hit area for easy hover */}
-            <circle
-              cx={p.x}
-              cy={p.y}
-              r={10}
-              fill="transparent"
-              className="cursor-default"
-            />
-            {/* Halo ring on hover */}
+            {/* Invisible hit area */}
+            <circle cx={p.x} cy={p.y} r={10} fill="transparent" className="cursor-default" />
+            {/* Halo */}
             <circle
               cx={p.x}
               cy={p.y}
@@ -107,7 +119,7 @@ export function AgencyMap({ offices }: { offices: string[] }) {
               fillOpacity={hovered === p.city ? 0.2 : 0.12}
               className="transition-[fill-opacity]"
             />
-            {/* Solid dot */}
+            {/* Dot */}
             <circle
               cx={p.x}
               cy={p.y}
@@ -115,25 +127,51 @@ export function AgencyMap({ offices }: { offices: string[] }) {
               fill="var(--color-accent)"
               className="transition-[r]"
             />
+
+            {/* Mobile: always-visible inline label, alternating above/below */}
+            {isMobile && (
+              <text
+                x={p.x}
+                y={p.y + labelOffsetY(i)}
+                textAnchor="middle"
+                className="fill-[var(--color-text)] font-mono"
+                fontSize="8"
+                fontWeight="600"
+              >
+                {p.city}
+              </text>
+            )}
+
             <title>{p.city}</title>
           </motion.g>
         ))}
       </svg>
 
-      {/* Label strip below the SVG — shows hovered city name */}
-      <div className="flex h-5 items-center border-t border-[var(--color-border)] pt-2">
-        {hovered ? (
-          <span className="font-mono text-[11px] text-[var(--color-accent)] uppercase tracking-[0.12em]">
-            {hovered}
-          </span>
-        ) : (
+      {/* Desktop: hover-reveal strip. Hidden on mobile (labels are inline above). */}
+      {!isMobile && (
+        <div className="flex h-5 items-center border-t border-[var(--color-border)] pt-2">
+          {hovered ? (
+            <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--color-accent)]">
+              {hovered}
+            </span>
+          ) : (
+            <span className="font-mono text-[11px] text-[var(--color-text-muted)]">
+              {placed.length === 0
+                ? "No mapped offices"
+                : `${placed.length} ${placed.length === 1 ? "office" : "offices"} — hover a dot`}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Mobile: static city list below the SVG for clarity alongside dots */}
+      {isMobile && placed.length > 0 && (
+        <div className="mt-2 border-t border-[var(--color-border)] pt-2">
           <span className="font-mono text-[11px] text-[var(--color-text-muted)]">
-            {placed.length === 0
-              ? "No mapped offices"
-              : `${placed.length} ${placed.length === 1 ? "office" : "offices"} — hover a dot`}
+            {placed.map((p) => p.city).join(" · ")}
           </span>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

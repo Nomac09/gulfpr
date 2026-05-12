@@ -26,7 +26,9 @@ The atlas does not scrape sites against their terms of service, does not extract
 
 Profiles are reviewed monthly. Corrections and additions from practitioners and firms are welcome — and the people closest to the work usually know first when something has changed.
 
-Featured profiles are agencies where public data depth meets the atlas's full target across leadership, clients, campaigns, awards, recent moves, practice mix and editorial coverage.`;
+Featured profiles are agencies where public data depth meets the atlas's full target across leadership, clients, campaigns, awards, recent moves, practice mix and editorial coverage.
+
+Profile depth is a function of public attribution, not agency size. The largest agencies sometimes have the thinnest public records because their current work is reported under parent brand names rather than their own. A boutique that publishes every client win will appear richer here than a global network whose Gulf operations are folded into holding-company press releases. Empty fields are signal, not omission.`;
 
 const PRINCIPLES = `The voice is senior practitioner: declarative, calm, specific. The atlas does not call agencies "leading" or "world-class," does not use exclamation marks, and does not editorialize beyond what the publicly available record will support.
 
