@@ -74,18 +74,37 @@ export type Source = {
   url: string;
 };
 
+export type PracticeMixEntry = {
+  practice: PracticeArea;
+  /** Approximate share of practice area within the agency's mix. Should sum to ~100 across the array. */
+  percentage: number;
+};
+
+export type EstimatedRevenue = {
+  range: string;
+  asOf: string;
+  source: string;
+};
+
 export type Agency = {
   slug: string;
   name: string;
   legalName?: string;
   parentCompany: HoldingCompany;
   parentSlug?: string;
+  /** Year the regional (Gulf) office opened. May differ from the global founding year. */
   founded?: number;
+  /** Year the brand was founded globally, if meaningfully different from regional founding. */
+  foundedGlobal?: number;
   headquarters: string;
   regionalOffices: string[];
   leadership: Leader[];
   headcountEstimate?: HeadcountEstimate;
+  /** Optional: only when publicly disclosed. */
+  estimatedRevenue?: EstimatedRevenue;
   practiceAreas: PracticeArea[];
+  /** Optional: per-practice share of the agency's mix. Leave undefined when not reliably sourceable. */
+  practiceMix?: PracticeMixEntry[];
   knownClients: KnownClient[];
   signatureCampaigns: SignatureCampaign[];
   recentAwards: Award[];
@@ -99,3 +118,9 @@ export type Agency = {
   lastUpdated: string;
   featured?: boolean;
 };
+
+/** Convenience: years active in Gulf, derived from founded year. */
+export function yearsActiveInGulf(agency: Agency, asOfYear: number): number | undefined {
+  if (!agency.founded) return undefined;
+  return Math.max(0, asOfYear - agency.founded);
+}

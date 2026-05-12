@@ -1,20 +1,41 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft, ArrowRight, ExternalLink } from "lucide-react";
 import { Container } from "@/components/container";
 import { Eyebrow } from "@/components/eyebrow";
 import { Pill } from "@/components/pill";
+import { HoldingPill } from "@/components/holding-pill";
 import { AgencyCard } from "@/components/agency-card";
 import { EditorialProse } from "@/components/editorial-prose";
+import { PracticeMixDonut } from "@/components/charts/practice-mix-donut";
+import { AgencyMap } from "@/components/charts/agency-map";
 import {
   getAgencyBySlug,
   getAllAgencies,
   getRelatedAgencies,
+  getSisterAgencies,
 } from "@/lib/agencies";
 import { formatDate } from "@/lib/format";
 
 type Params = { slug: string };
+
+// Known city set covered by the mini map's coordinate table.
+const MAPPABLE_CITIES = new Set([
+  "Casablanca",
+  "Nicosia",
+  "Beirut",
+  "Cairo",
+  "Riyadh",
+  "Jeddah",
+  "Kuwait City",
+  "Manama",
+  "Doha",
+  "Dubai",
+  "Abu Dhabi",
+  "Muscat",
+  "Sharjah",
+]);
 
 export function generateStaticParams() {
   return getAllAgencies().map((a) => ({ slug: a.slug }));
@@ -44,25 +65,28 @@ export default async function AgencyProfilePage({
   if (!agency) notFound();
 
   const related = getRelatedAgencies(agency.slug, 3);
+  const sisters = getSisterAgencies(agency.slug, 3);
 
   // Group clients by sector
-  const clientsBySector = agency.knownClients.reduce<Record<string, typeof agency.knownClients>>(
-    (acc, c) => {
-      (acc[c.sector] ||= []).push(c);
-      return acc;
-    },
-    {}
-  );
+  const clientsBySector = agency.knownClients.reduce<
+    Record<string, typeof agency.knownClients>
+  >((acc, c) => {
+    (acc[c.sector] ||= []).push(c);
+    return acc;
+  }, {});
   const clientSectors = Object.keys(clientsBySector).sort();
+
+  const hasPracticeMix = !!agency.practiceMix && agency.practiceMix.length > 0;
+  const mappableOffices = agency.regionalOffices
+    .map((o) => o.split(",")[0]?.trim())
+    .filter((c): c is string => !!c && MAPPABLE_CITIES.has(c));
+  const hasMappableOffices = mappableOffices.length > 0;
 
   return (
     <article className="pb-32">
       <Container>
         <nav className="pt-8 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
-          <Link
-            href="/"
-            className="hover:text-[var(--color-text)]"
-          >
+          <Link href="/" className="hover:text-[var(--color-text)]">
             Home
           </Link>
           <span className="mx-2">/</span>
@@ -78,7 +102,7 @@ export default async function AgencyProfilePage({
         {/* Profile hero */}
         <header className="mt-10 border-b border-[var(--color-border-strong)] pb-12">
           <div className="flex flex-wrap items-center gap-2">
-            <Pill variant="parent">{agency.parentCompany}</Pill>
+            <HoldingPill parent={agency.parentCompany} />
             {agency.featured && <Pill variant="accent">Featured profile</Pill>}
           </div>
           <h1 className="mt-5 font-display text-[48px] leading-[0.98] font-medium tracking-[-0.025em] sm:text-[72px] lg:text-[96px]">
@@ -95,6 +119,12 @@ export default async function AgencyProfilePage({
             <StatBlock
               label="Founded"
               value={agency.founded ? String(agency.founded) : "—"}
+              sub={
+                agency.foundedGlobal &&
+                agency.foundedGlobal !== agency.founded
+                  ? `Global: ${agency.foundedGlobal}`
+                  : undefined
+              }
             />
             <StatBlock
               label="Regional offices"
@@ -117,6 +147,44 @@ export default async function AgencyProfilePage({
         <Section eyebrow="What to know">
           <EditorialProse text={agency.editorialNote} />
         </Section>
+
+        {/* At a glance — mini charts + by-the-numbers */}
+        {(hasPracticeMix || hasMappableOffices) && (
+          <Section eyebrow="At a glance">
+            <ByTheNumbers agency={agency} />
+            {(hasPracticeMix || hasMappableOffices) && (
+              <div className="mt-10 grid grid-cols-1 gap-10 lg:grid-cols-2">
+                {hasPracticeMix && (
+                  <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+                    <div className="tracked-label mb-4">Practice mix</div>
+                    <PracticeMixDonut mix={agency.practiceMix!} />
+                    <p className="mt-5 text-[11px] text-[var(--color-text-muted)]">
+                      Approximate share of practice areas; based on public
+                      positioning and category disclosure.
+                    </p>
+                  </div>
+                )}
+                {hasMappableOffices && (
+                  <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+                    <div className="tracked-label mb-4">Office footprint</div>
+                    <AgencyMap offices={agency.regionalOffices} />
+                    <p className="mt-3 text-[11px] text-[var(--color-text-muted)]">
+                      Cities with a wholly-owned office. Affiliate-only markets
+                      are not shown.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </Section>
+        )}
+
+        {/* If no mini-charts available, still surface the numbers */}
+        {!hasPracticeMix && !hasMappableOffices && (
+          <Section eyebrow="At a glance">
+            <ByTheNumbers agency={agency} />
+          </Section>
+        )}
 
         {/* Leadership */}
         {agency.leadership.length > 0 && (
@@ -371,9 +439,29 @@ export default async function AgencyProfilePage({
           </div>
         </div>
 
-        {/* Related */}
-        {related.length > 0 && (
+        {/* Sister agencies (same parent) */}
+        {sisters.length > 0 && (
           <section className="mt-24">
+            <div className="mb-6 flex items-baseline justify-between border-b border-[var(--color-border-strong)] pb-3">
+              <Eyebrow>Other {agency.parentCompany} agencies</Eyebrow>
+              <Link
+                href={{ pathname: "/agencies", query: { holding: agency.parentCompany } }}
+                className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--color-text-secondary)] hover:text-[var(--color-accent)]"
+              >
+                View all {agency.parentCompany} →
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {sisters.map((r) => (
+                <AgencyCard key={r.slug} agency={r} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Related (different parent / overlapping practice) */}
+        {related.length > 0 && (
+          <section className="mt-20">
             <Eyebrow>Related agencies</Eyebrow>
             <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {related.map((r) => (
@@ -383,7 +471,7 @@ export default async function AgencyProfilePage({
           </section>
         )}
 
-        <div className="mt-16 flex">
+        <div className="mt-16 flex flex-wrap items-center gap-x-8 gap-y-3">
           <Link
             href="/agencies"
             className="group inline-flex items-center gap-2 text-[14px] font-medium underline decoration-[var(--color-border-strong)] underline-offset-[6px] hover:decoration-[var(--color-accent)]"
@@ -392,11 +480,70 @@ export default async function AgencyProfilePage({
               size={14}
               className="transition-transform group-hover:-translate-x-0.5"
             />
-            Back to all agencies
+            All agencies
           </Link>
+          {agency.parentCompany !== "Independent" && (
+            <Link
+              href={{ pathname: "/agencies", query: { holding: agency.parentCompany } }}
+              className="group inline-flex items-center gap-1.5 text-[14px] font-medium underline decoration-[var(--color-border-strong)] underline-offset-[6px] hover:decoration-[var(--color-accent)]"
+            >
+              Other {agency.parentCompany} agencies
+              <ArrowRight
+                size={14}
+                className="transition-transform group-hover:translate-x-0.5"
+              />
+            </Link>
+          )}
         </div>
       </Container>
     </article>
+  );
+}
+
+function ByTheNumbers({
+  agency,
+}: {
+  agency: ReturnType<typeof getAgencyBySlug> & object;
+}) {
+  if (!agency) return null;
+  const stats: { label: string; value: string }[] = [
+    {
+      label: "Practice areas",
+      value: String(agency.practiceAreas.length),
+    },
+    {
+      label: "Clients tracked",
+      value: agency.knownClients.length > 0 ? String(agency.knownClients.length) : "—",
+    },
+    {
+      label: "Signature campaigns",
+      value:
+        agency.signatureCampaigns.length > 0
+          ? String(agency.signatureCampaigns.length)
+          : "—",
+    },
+    {
+      label: "Recent awards",
+      value: agency.recentAwards.length > 0 ? String(agency.recentAwards.length) : "—",
+    },
+    {
+      label: "Recent moves",
+      value: agency.notableMoves.length > 0 ? String(agency.notableMoves.length) : "—",
+    },
+    { label: "Last reviewed", value: formatDate(agency.lastUpdated) },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 gap-x-6 gap-y-6 border-y border-[var(--color-border)] py-6 sm:grid-cols-3 lg:grid-cols-6">
+      {stats.map((s) => (
+        <div key={s.label}>
+          <div className="tracked-label">{s.label}</div>
+          <div className="mt-1 font-display text-[22px] font-medium tracking-[-0.005em] tabular">
+            {s.value}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 

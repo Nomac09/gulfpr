@@ -1,13 +1,25 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { AnimatePresence, motion, LayoutGroup } from "motion/react";
 import { Search, X } from "lucide-react";
-import type { Agency, HoldingCompany, PracticeArea } from "@/content/agencies/types";
+import type {
+  Agency,
+  HoldingCompany,
+  PracticeArea,
+} from "@/content/agencies/types";
 import { AgencyCard } from "@/components/agency-card";
 import { cn } from "@/lib/cn";
 
-type SortKey = "name" | "founded";
+type SortKey = "name" | "founded" | "yearsInGulf" | "offices";
+
+const SORT_OPTIONS: [SortKey, string][] = [
+  ["name", "A–Z"],
+  ["founded", "Founded"],
+  ["yearsInGulf", "Years in Gulf"],
+  ["offices", "Office count"],
+];
 
 export function AgencyDirectory({
   agencies,
@@ -20,11 +32,74 @@ export function AgencyDirectory({
   practiceAreas: PracticeArea[];
   cities: string[];
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const [parent, setParent] = useState<HoldingCompany | "all">("all");
   const [area, setArea] = useState<PracticeArea | "all">("all");
   const [city, setCity] = useState<string>("all");
   const [sort, setSort] = useState<SortKey>("name");
   const [query, setQuery] = useState("");
+
+  // Sync URL params on mount (and when they change externally, e.g. from map clicks)
+  useEffect(() => {
+    const sp = searchParams;
+    const urlHolding = sp.get("holding");
+    const urlPractice = sp.get("practice");
+    const urlCity = sp.get("city");
+    const urlQ = sp.get("q");
+    const urlSort = sp.get("sort");
+
+    if (urlHolding && parents.includes(urlHolding as HoldingCompany)) {
+      setParent(urlHolding as HoldingCompany);
+    } else if (!urlHolding) {
+      setParent("all");
+    }
+    if (urlPractice && practiceAreas.includes(urlPractice as PracticeArea)) {
+      setArea(urlPractice as PracticeArea);
+    } else if (!urlPractice) {
+      setArea("all");
+    }
+    if (urlCity && cities.includes(urlCity)) {
+      setCity(urlCity);
+    } else if (!urlCity) {
+      setCity("all");
+    }
+    if (urlQ !== null) setQuery(urlQ);
+    if (urlSort && SORT_OPTIONS.some(([k]) => k === urlSort)) {
+      setSort(urlSort as SortKey);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // Push state back to the URL (shallow) so links remain shareable
+  function pushUrl(next: {
+    parent?: HoldingCompany | "all";
+    area?: PracticeArea | "all";
+    city?: string;
+    query?: string;
+    sort?: SortKey;
+  }) {
+    const params = new URLSearchParams(searchParams.toString());
+    const p = next.parent ?? parent;
+    const a = next.area ?? area;
+    const c = next.city ?? city;
+    const q = next.query ?? query;
+    const s = next.sort ?? sort;
+    if (p !== "all") params.set("holding", p);
+    else params.delete("holding");
+    if (a !== "all") params.set("practice", a);
+    else params.delete("practice");
+    if (c !== "all") params.set("city", c);
+    else params.delete("city");
+    if (q) params.set("q", q);
+    else params.delete("q");
+    if (s !== "name") params.set("sort", s);
+    else params.delete("sort");
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -60,6 +135,15 @@ export function AgencyDirectory({
         const bf = b.founded ?? 9999;
         return af - bf;
       }
+      if (sort === "yearsInGulf") {
+        const now = new Date().getFullYear();
+        const ay = a.founded ? now - a.founded : -1;
+        const by = b.founded ? now - b.founded : -1;
+        return by - ay;
+      }
+      if (sort === "offices") {
+        return b.regionalOffices.length - a.regionalOffices.length;
+      }
       return 0;
     });
     return result;
@@ -67,6 +151,11 @@ export function AgencyDirectory({
 
   const hasActiveFilters =
     parent !== "all" || area !== "all" || city !== "all" || query !== "";
+  const activeFilterCount =
+    (parent !== "all" ? 1 : 0) +
+    (area !== "all" ? 1 : 0) +
+    (city !== "all" ? 1 : 0) +
+    (query !== "" ? 1 : 0);
 
   function reset() {
     setParent("all");
@@ -74,6 +163,7 @@ export function AgencyDirectory({
     setCity("all");
     setSort("name");
     setQuery("");
+    router.replace(pathname, { scroll: false });
   }
 
   return (
@@ -90,19 +180,42 @@ export function AgencyDirectory({
               <input
                 type="search"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  pushUrl({ query: e.target.value });
+                }}
                 placeholder="Search agencies by name, city, or text..."
                 className="w-full border border-[var(--color-border-strong)] bg-[var(--color-surface)] py-2.5 pl-9 pr-9 text-[14px] placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-text)] focus:outline-none"
               />
               {query && (
                 <button
                   type="button"
-                  onClick={() => setQuery("")}
+                  onClick={() => {
+                    setQuery("");
+                    pushUrl({ query: "" });
+                  }}
                   className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
                   aria-label="Clear search"
                 >
                   <X size={14} />
                 </button>
+              )}
+            </div>
+            {/* Prominent match indicator */}
+            <div
+              className={cn(
+                "hidden whitespace-nowrap border px-3 py-2 font-mono text-[11px] uppercase tracking-[0.1em] tabular md:block",
+                hasActiveFilters
+                  ? "border-[var(--color-text)] bg-[var(--color-text)] text-white"
+                  : "border-[var(--color-border-strong)] bg-[var(--color-surface)] text-[var(--color-text-secondary)]"
+              )}
+            >
+              <span className="font-semibold">{filtered.length}</span>
+              <span className="opacity-70"> / {agencies.length} match</span>
+              {activeFilterCount > 0 && (
+                <span className="ml-2 border-l border-white/30 pl-2 opacity-90">
+                  {activeFilterCount} {activeFilterCount === 1 ? "filter" : "filters"}
+                </span>
               )}
             </div>
             {hasActiveFilters && (
@@ -111,7 +224,7 @@ export function AgencyDirectory({
                 onClick={reset}
                 className="hidden whitespace-nowrap text-[12px] font-mono uppercase tracking-[0.1em] text-[var(--color-text-secondary)] underline decoration-[var(--color-border-strong)] underline-offset-[4px] hover:text-[var(--color-accent)] md:block"
               >
-                Reset filters
+                Reset
               </button>
             )}
           </div>
@@ -119,22 +232,48 @@ export function AgencyDirectory({
           {/* Filter chips */}
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-6">
             <FilterRow label="Holding">
-              <Chip active={parent === "all"} onClick={() => setParent("all")}>
+              <Chip
+                active={parent === "all"}
+                onClick={() => {
+                  setParent("all");
+                  pushUrl({ parent: "all" });
+                }}
+              >
                 All
               </Chip>
               {parents.map((p) => (
-                <Chip key={p} active={parent === p} onClick={() => setParent(p)}>
+                <Chip
+                  key={p}
+                  active={parent === p}
+                  onClick={() => {
+                    setParent(p);
+                    pushUrl({ parent: p });
+                  }}
+                >
                   {p}
                 </Chip>
               ))}
             </FilterRow>
 
             <FilterRow label="Practice">
-              <Chip active={area === "all"} onClick={() => setArea("all")}>
+              <Chip
+                active={area === "all"}
+                onClick={() => {
+                  setArea("all");
+                  pushUrl({ area: "all" });
+                }}
+              >
                 All
               </Chip>
               {practiceAreas.map((p) => (
-                <Chip key={p} active={area === p} onClick={() => setArea(p)}>
+                <Chip
+                  key={p}
+                  active={area === p}
+                  onClick={() => {
+                    setArea(p);
+                    pushUrl({ area: p });
+                  }}
+                >
                   {p}
                 </Chip>
               ))}
@@ -143,11 +282,24 @@ export function AgencyDirectory({
 
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
             <FilterRow label="City">
-              <Chip active={city === "all"} onClick={() => setCity("all")}>
+              <Chip
+                active={city === "all"}
+                onClick={() => {
+                  setCity("all");
+                  pushUrl({ city: "all" });
+                }}
+              >
                 All
               </Chip>
               {cities.map((c) => (
-                <Chip key={c} active={city === c} onClick={() => setCity(c)}>
+                <Chip
+                  key={c}
+                  active={city === c}
+                  onClick={() => {
+                    setCity(c);
+                    pushUrl({ city: c });
+                  }}
+                >
                   {c}
                 </Chip>
               ))}
@@ -155,17 +307,15 @@ export function AgencyDirectory({
 
             <div className="flex items-center gap-2 lg:shrink-0">
               <span className="tracked-label">Sort</span>
-              <div className="flex gap-1">
-                {(
-                  [
-                    ["name", "A–Z"],
-                    ["founded", "Founded"],
-                  ] as [SortKey, string][]
-                ).map(([key, label]) => (
+              <div className="flex gap-1 overflow-x-auto hide-scrollbar">
+                {SORT_OPTIONS.map(([key, label]) => (
                   <Chip
                     key={key}
                     active={sort === key}
-                    onClick={() => setSort(key)}
+                    onClick={() => {
+                      setSort(key);
+                      pushUrl({ sort: key });
+                    }}
                   >
                     {label}
                   </Chip>
@@ -176,20 +326,30 @@ export function AgencyDirectory({
         </div>
       </div>
 
-      <div className="mt-8 mb-6 flex items-center justify-between">
+      <div className="mt-8 mb-6 flex items-center justify-between md:hidden">
         <p className="font-mono text-[12px] text-[var(--color-text-muted)] tabular">
-          Showing {filtered.length} of {agencies.length} agencies
+          <span className="font-semibold text-[var(--color-text)]">
+            {filtered.length}
+          </span>{" "}
+          / {agencies.length} match
+          {activeFilterCount > 0 && (
+            <span className="ml-2 text-[var(--color-text-muted)]">
+              · {activeFilterCount} {activeFilterCount === 1 ? "filter" : "filters"}
+            </span>
+          )}
         </p>
         {hasActiveFilters && (
           <button
             type="button"
             onClick={reset}
-            className="text-[12px] font-mono uppercase tracking-[0.1em] text-[var(--color-text-secondary)] underline decoration-[var(--color-border-strong)] underline-offset-[4px] hover:text-[var(--color-accent)] md:hidden"
+            className="text-[12px] font-mono uppercase tracking-[0.1em] text-[var(--color-text-secondary)] underline decoration-[var(--color-border-strong)] underline-offset-[4px] hover:text-[var(--color-accent)]"
           >
             Reset
           </button>
         )}
       </div>
+
+      <div className="mt-8 hidden md:block" />
 
       <LayoutGroup>
         {filtered.length > 0 ? (

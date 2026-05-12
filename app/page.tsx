@@ -7,7 +7,15 @@ import { AgencyCard } from "@/components/agency-card";
 import { HeroHeadline } from "@/components/hero-headline";
 import { AccentRule } from "@/components/accent-rule";
 import { FadeIn } from "@/components/fade-in";
-import { getAtlasStats, getFeaturedAgencies, getAllParents } from "@/lib/agencies";
+import { HoldingDistributionChart } from "@/components/charts/holding-distribution";
+import { GeographicMap } from "@/components/charts/geographic-map";
+import {
+  getAllAgencies,
+  getAtlasStats,
+  getFeaturedAgencies,
+  getAllParents,
+} from "@/lib/agencies";
+import { getCityFootprints, getHoldingDistribution } from "@/lib/aggregations";
 import { SITE } from "@/lib/site";
 import { formatDate } from "@/lib/format";
 
@@ -53,6 +61,9 @@ export default function HomePage() {
   const stats = getAtlasStats();
   const featured = getFeaturedAgencies();
   const parents = getAllParents();
+  const agencies = getAllAgencies();
+  const distribution = getHoldingDistribution(agencies);
+  const cityFootprints = getCityFootprints(agencies);
 
   return (
     <div className="pb-32">
@@ -97,6 +108,16 @@ export default function HomePage() {
               <ArrowUpRight size={14} className="opacity-70" />
             </Link>
           </FadeIn>
+
+          <FadeIn delay={1.0} className="mt-6">
+            <Link
+              href="/about#methodology"
+              className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--color-text-muted)] hover:text-[var(--color-accent)]"
+            >
+              <span className="inline-block h-[1px] w-4 bg-current" />
+              Read the methodology
+            </Link>
+          </FadeIn>
         </Container>
       </section>
 
@@ -106,7 +127,7 @@ export default function HomePage() {
           <div className="flex items-baseline justify-between border-b border-[var(--color-border-strong)] pb-4">
             <Eyebrow>At a glance</Eyebrow>
             <span className="font-mono text-[11px] text-[var(--color-text-muted)]">
-              v0.1 · Phase 1
+              {SITE.version}
             </span>
           </div>
 
@@ -134,6 +155,41 @@ export default function HomePage() {
               sub="Reviewed monthly"
             />
           </div>
+
+          {/* Distribution chart */}
+          <div className="mt-16 border-t border-[var(--color-border)] pt-12">
+            <HoldingDistributionChart
+              data={distribution}
+              totalAgencies={stats.agencyCount}
+            />
+          </div>
+        </Container>
+      </section>
+
+      {/* WHERE THE WORK HAPPENS — geographic map */}
+      <section className="mt-28 lg:mt-40">
+        <Container>
+          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+            <div className="max-w-2xl">
+              <Eyebrow>Geographic footprint</Eyebrow>
+              <h2 className="mt-3 font-display text-[36px] leading-[1.02] font-medium tracking-[-0.02em] md:text-[52px]">
+                Where the work happens.
+              </h2>
+              <p className="mt-5 max-w-xl text-[16px] leading-[1.6] text-[var(--color-text-secondary)]">
+                Dubai dominates by volume, but the regional bench reaches across
+                the GCC and beyond. Circle size is proportional to the number
+                of agency offices in each city. Click a city to filter the
+                directory.
+              </p>
+            </div>
+            <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--color-text-muted)] tabular">
+              {cityFootprints.length} cities · {agencies.length} agencies
+            </span>
+          </div>
+
+          <div className="mt-10">
+            <GeographicMap cities={cityFootprints} />
+          </div>
         </Container>
       </section>
 
@@ -142,7 +198,7 @@ export default function HomePage() {
         <Container>
           <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div className="max-w-2xl">
-              <Eyebrow>Section 01</Eyebrow>
+              <Eyebrow>The directory</Eyebrow>
               <h2 className="mt-3 font-display text-[40px] leading-[1.02] font-medium tracking-[-0.02em] md:text-[56px]">
                 The Agencies
               </h2>

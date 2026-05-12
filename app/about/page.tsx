@@ -24,7 +24,9 @@ const METHODOLOGY = `Every entry is built from publicly available information �
 
 The atlas does not scrape sites against their terms of service, does not extract from LinkedIn programmatically, and does not bypass paywalls. Sources are linked from every profile.
 
-Profiles are reviewed monthly. Corrections and additions from practitioners and firms are welcome — and the people closest to the work usually know first when something has changed.`;
+Profiles are reviewed monthly. Corrections and additions from practitioners and firms are welcome — and the people closest to the work usually know first when something has changed.
+
+Featured profiles are agencies where public data depth meets the atlas's full target across leadership, clients, campaigns, awards, recent moves, practice mix and editorial coverage.`;
 
 const PRINCIPLES = `The voice is senior practitioner: declarative, calm, specific. The atlas does not call agencies "leading" or "world-class," does not use exclamation marks, and does not editorialize beyond what the publicly available record will support.
 
@@ -51,7 +53,7 @@ export default function AboutPage() {
             <EditorialProse text={ABOUT_BODY} />
           </section>
 
-          <section>
+          <section id="methodology" className="scroll-mt-24">
             <Eyebrow>Methodology</Eyebrow>
             <div className="mt-4">
               <EditorialProse text={METHODOLOGY} />

@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Container } from "@/components/container";
 import { Eyebrow } from "@/components/eyebrow";
 import { AgencyDirectory } from "@/components/agency-directory";
+import { PracticeHeatmapInteractive } from "@/components/charts/practice-heatmap-wrapper";
 import {
   getAllAgencies,
   getAllParents,
@@ -9,6 +11,7 @@ import {
   getAllCities,
   getAtlasStats,
 } from "@/lib/agencies";
+import { orderedPracticesForHeatmap } from "@/lib/aggregations";
 import { SITE } from "@/lib/site";
 import { formatDate } from "@/lib/format";
 
@@ -24,6 +27,7 @@ export default function AgenciesPage() {
   const practiceAreas = getAllPracticeAreas();
   const cities = getAllCities();
   const stats = getAtlasStats();
+  const heatmapPractices = orderedPracticesForHeatmap(agencies);
 
   return (
     <div className="pb-32">
@@ -70,14 +74,54 @@ export default function AgenciesPage() {
         </Container>
       </section>
 
-      <section className="mt-12">
+      {/* Practice coverage heatmap */}
+      <section className="mt-16">
         <Container>
-          <AgencyDirectory
-            agencies={agencies}
-            parents={parents}
-            practiceAreas={practiceAreas}
-            cities={cities}
-          />
+          <div className="flex flex-col gap-3 border-b border-[var(--color-border-strong)] pb-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <Eyebrow>Practice coverage</Eyebrow>
+              <h2 className="mt-2 font-display text-[24px] font-medium tracking-[-0.01em] md:text-[30px]">
+                Twenty agencies × what they cover
+              </h2>
+            </div>
+            <p className="max-w-md font-mono text-[11px] text-[var(--color-text-muted)]">
+              Click a column header to filter the directory. Click a row to
+              open the agency profile.
+            </p>
+          </div>
+
+          <div className="mt-8">
+            <Suspense
+              fallback={
+                <div className="h-[480px] animate-pulse border border-[var(--color-border)] bg-[var(--color-surface)]" />
+              }
+            >
+              <PracticeHeatmapInteractive
+                agencies={agencies}
+                practices={heatmapPractices}
+              />
+            </Suspense>
+          </div>
+        </Container>
+      </section>
+
+      <section id="directory" className="mt-16 scroll-mt-20">
+        <Container>
+          <div className="mb-8 border-b border-[var(--color-border-strong)] pb-3">
+            <Eyebrow>The directory</Eyebrow>
+          </div>
+          <Suspense
+            fallback={
+              <div className="h-[400px] animate-pulse border border-[var(--color-border)] bg-[var(--color-surface)]" />
+            }
+          >
+            <AgencyDirectory
+              agencies={agencies}
+              parents={parents}
+              practiceAreas={practiceAreas}
+              cities={cities}
+            />
+          </Suspense>
         </Container>
       </section>
     </div>

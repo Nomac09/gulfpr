@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import type { Agency } from "@/content/agencies/types";
 import { Pill } from "@/components/pill";
+import { HoldingPill } from "@/components/holding-pill";
 import { cardExcerpt } from "@/lib/excerpt";
 
 function metadataLine(agency: Agency): string {
@@ -25,7 +26,7 @@ export function AgencyCard({ agency }: { agency: Agency }) {
       className="group relative flex h-full flex-col gap-5 border border-[var(--color-border)] bg-[var(--color-surface)] p-7 transition-all duration-200 hover:border-[var(--color-text)] hover:shadow-[0_1px_0_var(--color-text)]"
     >
       <div className="flex items-start justify-between gap-3">
-        <Pill variant="parent">{agency.parentCompany}</Pill>
+        <HoldingPill parent={agency.parentCompany} />
         <ArrowUpRight
           size={16}
           className="text-[var(--color-text-muted)] transition-colors group-hover:text-[var(--color-accent)]"

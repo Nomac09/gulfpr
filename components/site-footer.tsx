@@ -2,11 +2,23 @@ import Link from "next/link";
 import { Wordmark } from "@/components/wordmark";
 import { SITE } from "@/lib/site";
 import { formatDate } from "@/lib/format";
+import { getAtlasStats } from "@/lib/agencies";
 
 export function SiteFooter() {
+  const stats = getAtlasStats();
   return (
     <footer className="mt-32 border-t border-[var(--color-border)] bg-[var(--color-surface-2)]">
       <div className="mx-auto max-w-[1280px] px-6 py-16 lg:px-12">
+        {/* Atlas stat strip */}
+        <div className="mb-12 grid grid-cols-3 gap-x-6 gap-y-3 border-b border-[var(--color-border)] pb-10 md:grid-cols-3">
+          <FooterStat
+            label="Agencies tracked"
+            value={String(stats.agencyCount)}
+          />
+          <FooterStat label="Last updated" value={formatDate(SITE.lastUpdated)} />
+          <FooterStat label="License" value={SITE.license} />
+        </div>
+
         <div className="grid grid-cols-1 gap-12 md:grid-cols-[1fr_2fr]">
           <div>
             <Wordmark size="lg" />
@@ -79,12 +91,14 @@ export function SiteFooter() {
             </div>
             <div>
               <h4 className="tracked-label mb-3">Reference</h4>
-              <ul className="space-y-2 text-[14px] text-[var(--color-text-secondary)]">
-                <li className="font-mono text-[12px]">
+              <div className="space-y-0.5">
+                <p className="font-mono text-[12px] text-[var(--color-text-secondary)]">
                   Updated {formatDate(SITE.lastUpdated)}
-                </li>
-                <li className="font-mono text-[12px]">v0.1 · Phase 1</li>
-              </ul>
+                </p>
+                <p className="font-mono text-[12px] text-[var(--color-text-muted)]">
+                  {SITE.version}
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -99,5 +113,16 @@ export function SiteFooter() {
         </div>
       </div>
     </footer>
+  );
+}
+
+function FooterStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="tracked-label">{label}</div>
+      <div className="mt-1 font-display text-[20px] font-medium tracking-[-0.01em] tabular">
+        {value}
+      </div>
+    </div>
   );
 }

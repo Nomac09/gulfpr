@@ -79,6 +79,18 @@ export function getFeaturedAgencies(): Agency[] {
   return featured.length > 0 ? featured : AGENCIES.slice(0, 8);
 }
 
+/** Sister agencies under the same parent holding company, excluding the focus agency. */
+export function getSisterAgencies(slug: string, limit = 3): Agency[] {
+  const target = getAgencyBySlug(slug);
+  if (!target) return [];
+  if (target.parentCompany === "Independent") return [];
+  return AGENCIES.filter(
+    (a) => a.parentCompany === target.parentCompany && a.slug !== slug
+  )
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .slice(0, limit);
+}
+
 export function getRelatedAgencies(slug: string, limit = 3): Agency[] {
   const target = getAgencyBySlug(slug);
   if (!target) return [];

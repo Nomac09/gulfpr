@@ -21,5 +21,6 @@ export const SITE = {
   editor: "Nasim Sawalma",
   editorEmail: "nasim.sawalma@gmail.com",
   license: "CC BY 4.0",
-  lastUpdated: "2026-05-11",
+  lastUpdated: "2026-05-12",
+  version: "v0.2 · Phase 1.5",
 } as const;
