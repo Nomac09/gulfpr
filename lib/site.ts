@@ -6,7 +6,7 @@ export type NavItem = {
 
 export const NAV: NavItem[] = [
   { label: "Agencies", href: "/agencies", status: "available" },
-  { label: "Holding Companies", href: "/holding-companies", status: "soon" },
+  { label: "Holding Companies", href: "/holding-companies", status: "available" },
   { label: "Campaigns", href: "/campaigns", status: "soon" },
   { label: "Media", href: "/media", status: "soon" },
   { label: "Practice", href: "/practice", status: "soon" },
@@ -22,5 +22,5 @@ export const SITE = {
   editorEmail: "nasim.sawalma@gmail.com",
   license: "CC BY 4.0",
   lastUpdated: "2026-05-12",
-  version: "v0.2 · Phase 1.5",
+  version: "v0.3 · Phase 2",
 } as const;
